@@ -1,5 +1,10 @@
 {
   "dependencies": {
+    "@nivo/bar": "^0.99.0",
+    "@nivo/core": "^0.99.0",
+    "@nivo/line": "^0.99.0",
+    "@nivo/pie": "^0.99.0",
+    "@nivo/scatterplot": "^0.99.0",
     "axios": "^1.13.5",
     "nodemailer": "^8.0.1",
     "uuid": "^13.0.0"

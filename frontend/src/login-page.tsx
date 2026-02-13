@@ -84,8 +84,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onRegisterClick, onLoginSu
           </div>
           <h1 className="auth-brand-title">Employee<br />Training Platform</h1>
           <p className="auth-brand-subtitle">Online Professional Development</p>
-          
-        
         </div>
       </div>
 

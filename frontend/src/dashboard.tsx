@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import './style.css';
 import api from './api';
-import Chart from 'chart.js/auto';
+import { BarChart, LineChart, PieChart, ColumnChart, AreaChart } from './NivoCharts';
 
 interface Plant {
   id: number;
@@ -45,24 +45,21 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout, user }) => {
   const [documentDataError, setDocumentDataError] = useState<string | null>(null);
   const [selectedDocTypeCode, setSelectedDocTypeCode] = useState<string>('');
   const [viewMode, setViewMode] = useState<'table' | 'chart'>('table');
-  const [chartType, setChartType] = useState<'bar' | 'line' | 'pie' | 'doughnut' | 'radar' | 'polarArea'>('bar');
+  const [chartType, setChartType] = useState<'bar' | 'line' | 'pie' | 'area' | 'column'>('bar');
   const [selectedYColumns, setSelectedYColumns] = useState<string[]>(['TotalDocAmt']);
-
+  const [selectedPieParameter, setSelectedPieParameter] = useState<string>('TotalDocAmt');
+  
   const plantDropdownRef = useRef<HTMLDivElement | null>(null);
   const documentDropdownRef = useRef<HTMLDivElement | null>(null);
   const userDropdownRef = useRef<HTMLDivElement | null>(null);
-  const chartCanvasRef = useRef<HTMLCanvasElement | null>(null);
-  const chartInstanceRef = useRef<Chart | null>(null);
 
-  
   const chartTypes = useMemo(
     () => [
       { label: 'Bar', value: 'bar' },
       { label: 'Line', value: 'line' },
       { label: 'Pie', value: 'pie' },
-      { label: 'Doughnut', value: 'doughnut' },
-      { label: 'Radar', value: 'radar' },
-      { label: 'Polar Area', value: 'polarArea' }
+      { label: 'Column', value: 'column' },
+      { label: 'Area', value: 'area' }
     ],
     []
   );
@@ -96,14 +93,70 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout, user }) => {
     return { labelKey, numericKeys, availableTargets };
   };
 
-  const detectedChartKeys = useMemo(() => detectChartKeys(documentData), [documentData]);
+  // Detect keys from document data
+  const detectedChartKeys = useMemo(() => {
+    return documentData.length > 0 ? detectChartKeys(documentData) : null;
+  }, [documentData]);
+
+  // Transform document data to Nivo format based on chart type
+  const transformDataForNivo = useMemo(() => {
+    if (!documentData.length || !detectedChartKeys?.labelKey) return null;
+
+    const { labelKey } = detectedChartKeys;
+    const columnsToUse = 
+      chartType === 'pie' 
+        ? [selectedPieParameter] 
+        : selectedYColumns;
+
+    if (chartType === 'pie') {
+      // Convert to Nivo pie format: [{ id: 'name', value: amount }, ...]
+      const colKey = selectedPieParameter;
+      return documentData.map((row) => {
+        const raw = row[colKey];
+        const normalized = typeof raw === 'string' ? raw.replace(/,/g, '') : raw;
+        const value = Number.isFinite(Number(normalized)) ? Number(normalized) : 0;
+        return {
+          id: String(row[labelKey] ?? ''),
+          label: String(row[labelKey] ?? ''),
+          value: value
+        };
+      });
+    } else if (chartType === 'line' || chartType === 'area') {
+      // Convert to Nivo line/area format: [{ id: 'series', data: [{ x, y }, ...] }, ...]
+      return columnsToUse.map((colKey) => ({
+        id: formatHeader(colKey),
+        data: documentData.map((row) => {
+          const raw = row[colKey];
+          const normalized = typeof raw === 'string' ? raw.replace(/,/g, '') : raw;
+          const y = Number.isFinite(Number(normalized)) ? Number(normalized) : 0;
+          return {
+            x: String(row[labelKey] ?? ''),
+            y: y
+          };
+        })
+      }));
+    } else {
+      // Convert to Nivo bar/column format: [{ labelKey: 'value', col1: amount, col2: amount }, ...]
+      return documentData.map((row) => {
+        const record: any = { [labelKey]: String(row[labelKey] ?? '') };
+        columnsToUse.forEach((colKey) => {
+          const raw = row[colKey];
+          const normalized = typeof raw === 'string' ? raw.replace(/,/g, '') : raw;
+          record[colKey] = Number.isFinite(Number(normalized)) ? Number(normalized) : 0;
+        });
+        return record;
+      });
+    }
+  }, [documentData, detectedChartKeys, chartType, selectedYColumns, selectedPieParameter]);
 
   // Auto-select available target columns on data load
   useEffect(() => {
     if (detectedChartKeys?.availableTargets && detectedChartKeys.availableTargets.length > 0) {
       setSelectedYColumns(detectedChartKeys.availableTargets);
+      setSelectedPieParameter(detectedChartKeys.availableTargets[0]);
     } else if (detectedChartKeys?.numericKeys && detectedChartKeys.numericKeys.length > 0) {
       setSelectedYColumns([detectedChartKeys.numericKeys[0]]);
+      setSelectedPieParameter(detectedChartKeys.numericKeys[0]);
     }
   }, [detectedChartKeys?.availableTargets]);
 
@@ -130,108 +183,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout, user }) => {
       setDocumentData([]);
     }
   }, [selectedPlant, selectedDocTypeCode]);
-
-  useEffect(() => {
-    if (viewMode !== 'chart') {
-      if (chartInstanceRef.current) {
-        chartInstanceRef.current.destroy();
-        chartInstanceRef.current = null;
-      }
-      return;
-    }
-
-    if (!chartCanvasRef.current || !documentData.length) return;
-    if (!detectedChartKeys || !detectedChartKeys.labelKey) return;
-
-    const { labelKey } = detectedChartKeys;
-    const labels = documentData.map((row) => String(row[labelKey] ?? ''));
-
-    const palette = [
-      '#3b82f6',
-      '#10b981',
-      '#f59e0b',
-      '#ef4444',
-      '#6366f1',
-      '#06b6d4',
-      '#8b5cf6',
-      '#14b8a6',
-      '#f97316',
-      '#22c55e'
-    ];
-
-    // For pie/doughnut charts, use only first selected column
-    const columnsToUse =
-      chartType === 'pie' || chartType === 'doughnut' || chartType === 'polarArea' || chartType === 'radar'
-        ? selectedYColumns.slice(0, 1)
-        : selectedYColumns;
-
-    const datasets = columnsToUse.map((colKey, colIndex) => {
-      const values = documentData.map((row) => {
-        const raw = row[colKey];
-        const normalized = typeof raw === 'string' ? raw.replace(/,/g, '') : raw;
-        const numberValue = Number(normalized);
-        return Number.isFinite(numberValue) ? numberValue : 0;
-      });
-
-      return {
-        label: formatHeader(colKey),
-        data: values,
-        backgroundColor:
-          chartType === 'line'
-            ? 'rgba(0, 0, 0, 0)'
-            : chartType === 'pie' || chartType === 'doughnut' || chartType === 'polarArea'
-            ? palette
-            : palette[colIndex % palette.length],
-        borderColor:
-          chartType === 'line'
-            ? palette[colIndex % palette.length]
-            : palette[colIndex % palette.length],
-        borderWidth: chartType === 'line' ? 2 : 1,
-        fill: chartType === 'line' ? false : true,
-        tension: chartType === 'line' ? 0.3 : 0,
-        pointBackgroundColor: palette[colIndex % palette.length],
-        pointBorderColor: '#fff',
-        pointBorderWidth: 2,
-        pointRadius: 4
-      };
-    });
-
-    if (chartInstanceRef.current) {
-      chartInstanceRef.current.destroy();
-    }
-
-    chartInstanceRef.current = new Chart(chartCanvasRef.current, {
-      type: chartType,
-      data: {
-        labels,
-        datasets
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: {
-            display: chartType !== 'pie' && chartType !== 'doughnut'
-          }
-        },
-        scales:
-          chartType === 'pie' || chartType === 'doughnut' || chartType === 'polarArea'
-            ? undefined
-            : {
-                x: {
-                  ticks: {
-                    color: '#6b7280'
-                  }
-                },
-                y: {
-                  ticks: {
-                    color: '#6b7280'
-                  }
-                }
-              }
-      }
-    });
-  }, [viewMode, chartType, documentData, detectedChartKeys, selectedYColumns]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -892,56 +843,119 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout, user }) => {
             <div style={{
               display: 'flex',
               justifyContent: 'space-between',
-              alignItems: 'center',
+              alignItems: 'flex-start',
               gap: '1rem',
               marginBottom: '1rem',
               padding: '0.75rem',
               backgroundColor: '#f9fafb',
               borderRadius: '6px',
-              border: '1px solid #e5e7eb'
+              border: '1px solid #e5e7eb',
+              flexWrap: 'wrap'
             }}>
               <div style={{
                 display: 'flex',
                 gap: '1rem',
-                alignItems: 'center',
-                flexWrap: 'wrap'
+                alignItems: 'flex-start',
+                flexWrap: 'wrap',
+                flex: 1
               }}>
-                <span style={{
-                  fontSize: '0.85rem',
-                  fontWeight: 600,
-                  color: '#6b7280'
-                }}>
-                  Y-Axis Columns:
-                </span>
-                {detectedChartKeys?.numericKeys?.map((colKey) => (
-                  <label
-                    key={colKey}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.4rem',
+                {chartType === 'pie' ? (
+                  <div style={{
+                    display: 'flex',
+                    gap: '1rem',
+                    alignItems: 'flex-start',
+                    flexWrap: 'wrap'
+                  }}>
+                    <div>
+                      <span style={{
+                        fontSize: '0.85rem',
+                        fontWeight: 600,
+                        color: '#6b7280',
+                        display: 'block',
+                        marginBottom: '0.5rem'
+                      }}>
+                        Select Parameter:
+                      </span>
+                      <div style={{
+                        display: 'flex',
+                        gap: '1rem',
+                        flexWrap: 'wrap'
+                      }}>
+                        {detectedChartKeys?.numericKeys?.map((colKey) => (
+                          <label
+                            key={colKey}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '0.4rem',
+                              fontSize: '0.85rem',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            <input
+                              type="radio"
+                              name="pie-parameter"
+                              value={colKey}
+                              checked={selectedPieParameter === colKey}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedPieParameter(colKey);
+                                }
+                              }}
+                              style={{
+                                cursor: 'pointer'
+                              }}
+                            />
+                            <span>{formatHeader(colKey)}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{
+                    display: 'flex',
+                    gap: '1rem',
+                    alignItems: 'center',
+                    flexWrap: 'wrap'
+                  }}>
+                    <span style={{
                       fontSize: '0.85rem',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={selectedYColumns.includes(colKey)}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setSelectedYColumns([...selectedYColumns, colKey]);
-                        } else {
-                          setSelectedYColumns(selectedYColumns.filter((col) => col !== colKey));
-                        }
-                      }}
-                      style={{
-                        cursor: 'pointer'
-                      }}
-                      disabled={chartType === 'pie' || chartType === 'doughnut' || chartType === 'polarArea' || chartType === 'radar'}
-                    />
-                    <span>{formatHeader(colKey)}</span>
-                  </label>
-                ))}
+                      fontWeight: 600,
+                      color: '#6b7280'
+                    }}>
+                      Y-Axis Columns:
+                    </span>
+                    {detectedChartKeys?.numericKeys?.map((colKey) => (
+                      <label
+                        key={colKey}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.4rem',
+                          fontSize: '0.85rem',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedYColumns.includes(colKey)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedYColumns([...selectedYColumns, colKey]);
+                            } else {
+                              setSelectedYColumns(selectedYColumns.filter((col) => col !== colKey));
+                            }
+                          }}
+                          style={{
+                            cursor: 'pointer'
+                          }}
+                        />
+                        <span>{formatHeader(colKey)}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <select
@@ -1090,31 +1104,118 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout, user }) => {
                 ))}
               </div>
             </div>
-          ) : (
+          ) : transformDataForNivo ? (
             <div style={{
               border: '1px solid #e5e7eb',
               borderRadius: '6px',
               padding: '1rem',
               minHeight: '420px',
-              backgroundColor: '#f9fafb'
+              backgroundColor: '#ffffff'
             }}>
-              {!detectedChartKeys?.numericKeys || detectedChartKeys.numericKeys.length === 0 ? (
-                <div style={{
-                  padding: '2rem',
-                  textAlign: 'center',
-                  color: '#6b7280',
-                  fontSize: '0.95rem'
-                }}>
-                  No numeric columns found to plot a chart.
-                </div>
-              ) : (
-                <div style={{
-                  position: 'relative',
-                  height: '420px'
-                }}>
-                  <canvas ref={chartCanvasRef} />
+              {chartType === 'pie' && (
+                <div>
+                  <div style={{
+                    marginBottom: '1rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.75rem'
+                  }}>
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem'
+                    }}>
+                      <span style={{
+                        fontSize: '0.875rem',
+                        fontWeight: 600,
+                        color: '#6b7280'
+                      }}>
+                        Parameter:
+                      </span>
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.5rem',
+                        padding: '0.4rem 0.75rem',
+                        backgroundColor: '#f3f4f6',
+                        borderRadius: '6px',
+                        border: '1px solid #e5e7eb'
+                      }}>
+                        <div
+                          style={{
+                            width: '16px',
+                            height: '16px',
+                            borderRadius: '3px',
+                            backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#6366f1', '#06b6d4', '#8b5cf6', '#14b8a6', '#f97316', '#22c55e'][
+                              (detectedChartKeys?.numericKeys?.indexOf(selectedPieParameter) || 0) % 10
+                            ]
+                          }}
+                        />
+                        <span style={{
+                          fontSize: '0.875rem',
+                          fontWeight: 600,
+                          color: '#1f2937'
+                        }}>
+                          {formatHeader(selectedPieParameter)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <PieChart
+                    data={transformDataForNivo}
+                    height={400}
+                    showLegend={true}
+                  />
                 </div>
               )}
+
+              {chartType === 'line' && (
+                <LineChart
+                  data={transformDataForNivo}
+                  height={400}
+                  showLegend={true}
+                />
+              )}
+
+              {chartType === 'area' && (
+                <AreaChart
+                  data={transformDataForNivo}
+                  height={400}
+                  showLegend={true}
+                />
+              )}
+
+              {chartType === 'bar' && (
+                <BarChart
+                  data={transformDataForNivo}
+                  xAxisKey={detectedChartKeys?.labelKey}
+                  yAxisKeys={selectedYColumns}
+                  height={400}
+                  showLegend={true}
+                  enableStackMode={false}
+                  invertAxes={true}
+                />
+              )}
+
+              {chartType === 'column' && (
+                <ColumnChart
+                  data={transformDataForNivo}
+                  xAxisKey={detectedChartKeys?.labelKey}
+                  yAxisKeys={selectedYColumns}
+                  height={400}
+                  showLegend={true}
+                  enableStackMode={false}
+                />
+              )}
+            </div>
+          ) : (
+            <div style={{
+              padding: '2rem',
+              textAlign: 'center',
+              color: '#6b7280',
+              fontSize: '0.95rem'
+            }}>
+              Unable to render chart - please check your data.
             </div>
           )}
         </div>
