@@ -266,6 +266,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout, user }) => {
 
   const fetchDocuments = async (plantNo: number) => {
     try {
+      setLoadingDocuments(true);
+      setDocumentsError(null);
+      
       console.log('Fetching documents for plant number:', plantNo);
       
       const data = await api.get(`/api/plants/${plantNo}/documents`);
@@ -287,6 +290,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout, user }) => {
       console.error('Error fetching documents:', err);
       setDocumentsError('Unable to load documents');
       setDocuments([]);
+    } finally {
+      setLoadingDocuments(false);
     }
   };
 
