@@ -334,8 +334,8 @@ app.post('/api/login', async (req, res) => {
     }
 
     // Create JWT tokens
-    const accessToken = jwt.sign({ id: user.Id, role: user.Role }, process.env.JWT_SECRET, { expiresIn: '15m' });
-    const refreshToken = jwt.sign({ id: user.Id, role: user.Role }, process.env.REFRESH_TOKEN_SECRET || (process.env.JWT_SECRET + '_rt'), { expiresIn: '7d' });
+    const accessToken = jwt.sign({ id: user.Id, role: user.Role }, process.env.JWT_SECRET, { expiresIn: '5m' });
+    const refreshToken = jwt.sign({ id: user.Id, role: user.Role }, process.env.REFRESH_TOKEN_SECRET || (process.env.JWT_SECRET + '_rt'), { expiresIn: '5m' });
 
     // Store refresh token (in-memory). Replace with DB storage in production.
     refreshTokens.add(refreshToken);
@@ -345,7 +345,7 @@ app.post('/api/login', async (req, res) => {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge: 7 * 24 * 60 * 60 * 1000,
+      maxAge: 5 * 60 * 1000,
     });
 
     return res.json({ success: true, message: 'Login successful.', user: { Id: user.Id, Email: user.Email, FullName: user.FullName, Role: user.Role }, accessToken });
@@ -366,7 +366,7 @@ app.post('/api/refresh', (req, res) => {
     if (!refreshTokens.has(token)) return res.status(403).json({ success: false, message: 'Invalid refresh token' });
 
     const payload = jwt.verify(token, process.env.REFRESH_TOKEN_SECRET || (process.env.JWT_SECRET + '_rt'));
-    const accessToken = jwt.sign({ id: payload.id, role: payload.role }, process.env.JWT_SECRET, { expiresIn: '15m' });
+    const accessToken = jwt.sign({ id: payload.id, role: payload.role }, process.env.JWT_SECRET, { expiresIn: '5m' });
     return res.json({ success: true, accessToken });
   } catch (err) {
     console.error('Refresh token error:', err);

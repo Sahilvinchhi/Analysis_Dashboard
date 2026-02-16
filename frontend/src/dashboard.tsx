@@ -3,6 +3,7 @@ import './style.css';
 import api from './api';
 import { BarChart, LineChart, PieChart, ColumnChart, AreaChart } from './NivoCharts';
 
+
 interface Plant {
   id: number;
   name: string;
@@ -51,9 +52,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout, user }) => {
   const [selectedYColumns, setSelectedYColumns] = useState<string[]>(['TotalDocAmt']);
   const [selectedPieParameter, setSelectedPieParameter] = useState<string>('TotalDocAmt');
   
-  const plantDropdownRef = useRef<HTMLDivElement | null>(null);
-  const documentDropdownRef = useRef<HTMLDivElement | null>(null);
-  const userDropdownRef = useRef<HTMLDivElement | null>(null);
+
+const plantDropdownRef = useRef<HTMLDivElement | null>(null);
+const documentDropdownRef = useRef<HTMLDivElement | null>(null);
+const userDropdownRef = useRef<HTMLDivElement | null>(null);
+
 
   const chartTypes = useMemo(
     () => [
