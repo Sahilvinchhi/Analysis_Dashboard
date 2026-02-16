@@ -144,5 +144,21 @@ export const api = {
     apiRequest<T>(endpoint, { ...options, method: 'DELETE' }),
 };
 
+/**
+ * Plant and Document Type APIs
+ */
+export const plantApi = {
+  // Get all available plants
+  getPlants: () => api.get('/api/plants'),
+
+  // Get available document types for a plant
+  getDocumentTypes: (plantNo: number) =>
+    api.get(`/api/plants/${plantNo}/documents`),
+
+  // Get financial data for a specific document type
+  getDocumentData: (plantNo: number, docTypeCode: string) =>
+    api.get(`/api/plants/${plantNo}/documents/${encodeURIComponent(docTypeCode)}/data`),
+};
+
 export default api;
 

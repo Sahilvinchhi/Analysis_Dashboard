@@ -6,6 +6,7 @@ import { BarChart, LineChart, PieChart, ColumnChart, AreaChart } from './NivoCha
 interface Plant {
   id: number;
   name: string;
+  plantNo: number;
 }
 
 interface Document {
@@ -44,6 +45,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout, user }) => {
   const [loadingDocumentData, setLoadingDocumentData] = useState(false);
   const [documentDataError, setDocumentDataError] = useState<string | null>(null);
   const [selectedDocTypeCode, setSelectedDocTypeCode] = useState<string>('');
+  const [selectedPlantNo, setSelectedPlantNo] = useState<number | null>(null);
   const [viewMode, setViewMode] = useState<'table' | 'chart'>('table');
   const [chartType, setChartType] = useState<'bar' | 'line' | 'pie' | 'area' | 'column'>('bar');
   const [selectedYColumns, setSelectedYColumns] = useState<string[]>(['TotalDocAmt']);
@@ -165,8 +167,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout, user }) => {
   }, []);
 
   useEffect(() => {
-    if (selectedPlant && selectedPlant !== 'Select Plant') {
-      fetchDocuments(selectedPlant);
+    if (selectedPlant && selectedPlant !== 'Select Plant' && selectedPlantNo !== null) {
+      fetchDocuments(selectedPlantNo);
     } else {
       setDocuments([]);
       setDocumentsError(null);
@@ -174,15 +176,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout, user }) => {
       setSelectedDocument('Select Document');
       setSelectedDocTypeCode('');
     }
-  }, [selectedPlant]);
+  }, [selectedPlantNo]);
 
   useEffect(() => {
-    if (selectedPlant !== 'Select Plant' && selectedDocTypeCode) {
-      fetchDocumentData(selectedPlant, selectedDocTypeCode);
+    if (selectedPlantNo !== null && selectedDocTypeCode) {
+      fetchDocumentData(selectedPlantNo, selectedDocTypeCode);
     } else {
       setDocumentData([]);
     }
-  }, [selectedPlant, selectedDocTypeCode]);
+  }, [selectedPlantNo, selectedDocTypeCode]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -225,6 +227,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout, user }) => {
 
   const handlePlantSelect = (plant: Plant) => {
     setSelectedPlant(plant.name);
+    setSelectedPlantNo(plant.plantNo); // Set plant number directly from plant object
     setIsDropdownOpen(false);
     setSelectedDocument('Select Document'); // Reset document selection
     setDocumentDropdownError(null);
@@ -261,15 +264,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout, user }) => {
     setIsDocumentDropdownOpen(false);
   };
 
-  const fetchDocuments = async (plantName: string) => {
+  const fetchDocuments = async (plantNo: number) => {
     try {
-      setLoadingDocuments(true);
-      setDocumentsError(null);
+      console.log('Fetching documents for plant number:', plantNo);
       
-      console.log('Fetching documents for plant:', plantName);
-      
-      const encodedPlantName = encodeURIComponent(plantName);
-      const data = await api.get(`/api/plants/${encodedPlantName}/documents`);
+      const data = await api.get(`/api/plants/${plantNo}/documents`);
       
       console.log('Response data:', data);
       
@@ -288,21 +287,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout, user }) => {
       console.error('Error fetching documents:', err);
       setDocumentsError('Unable to load documents');
       setDocuments([]);
-    } finally {
-      setLoadingDocuments(false);
     }
   };
 
-  const fetchDocumentData = async (plantName: string, docTypeCode: string) => {
+  const fetchDocumentData = async (plantNo: number, docTypeCode: string) => {
     try {
       setLoadingDocumentData(true);
       setDocumentDataError(null);
       
-      console.log('Fetching document data for:', plantName, docTypeCode);
+      console.log('Fetching document data for plant:', plantNo, 'docType:', docTypeCode);
       
-      const encodedPlantName = encodeURIComponent(plantName);
       const encodedDocTypeCode = encodeURIComponent(docTypeCode);
-      const data = await api.get(`/api/plants/${encodedPlantName}/documents/${encodedDocTypeCode}/data`);
+      const data = await api.get(`/api/plants/${plantNo}/documents/${encodedDocTypeCode}/data`);
       
       console.log('Document data received:', data);
       

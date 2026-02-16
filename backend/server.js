@@ -178,9 +178,10 @@ app.get('/api/plants', auth, async (req, res) => {
       .request()
       .execute('get_plantname');
 
-    const plants = result.recordset.map((plant, index) => ({
-      id: index + 1,
-      name: plant.vPlantName
+    const plants = result.recordset.map((plant) => ({
+      id: plant.nPlantNo,
+      name: plant.vPlantName,
+      plantNo: plant.nPlantNo
     }));
  
 
@@ -201,16 +202,16 @@ app.get('/api/plants', auth, async (req, res) => {
 });
 
 // Get documents for selected plant
-app.get('/api/plants/:plantName/documents', auth, async (req, res) => {
+app.get('/api/plants/:plantNo/documents', auth, async (req, res) => {
   try {
-    const { plantName } = req.params;
+    const { plantNo } = req.params;
     
-    console.log('Fetching documents for plant:', plantName);
+    console.log('Fetching documents for plant number:', plantNo);
     
-    if (!plantName) {
+    if (!plantNo) {
       return res.status(400).json({
         success: false,
-        message: 'Plant name is required'
+        message: 'Plant number is required'
       });
     }
 
@@ -223,7 +224,7 @@ app.get('/api/plants/:plantName/documents', auth, async (req, res) => {
     // Execute stored procedure to get plant-wise documents
     const result = await pool
       .request()
-      .input('PlantName', sql.VarChar, plantName)
+      .input('PlantNo', sql.Int, plantNo)
       .execute('usp_GetPlantWiseSelectedDocTypes');
 
     console.log('Documents fetched:', result.recordset.length, 'documents');
@@ -246,18 +247,17 @@ app.get('/api/plants/:plantName/documents', auth, async (req, res) => {
   }
 });
 
-
 // Get document data for selected plant and document type
-app.get('/api/plants/:plantName/documents/:docTypeCode/data', auth, async (req, res) => {
+app.get('/api/plants/:plantNo/documents/:docTypeCode/data', auth, async (req, res) => {
   try {
-    const { plantName, docTypeCode } = req.params;
+    const { plantNo, docTypeCode } = req.params;
     
-    console.log('Fetching document data for plant:', plantName, 'docType:', docTypeCode);
+    console.log('Fetching document data for plant:', plantNo, 'docType:', docTypeCode);
     
-    if (!plantName || !docTypeCode) {
+    if (!plantNo || !docTypeCode) {
       return res.status(400).json({
         success: false,
-        message: 'Plant name and document type code are required'
+        message: 'Plant number and document type code are required'
       });
     }
 
@@ -270,7 +270,7 @@ app.get('/api/plants/:plantName/documents/:docTypeCode/data', auth, async (req, 
     // Execute stored procedure to get plant document data
     const result = await pool
       .request()
-      .input('PlantName', sql.VarChar, plantName)
+      .input('PlantNo', sql.Int, plantNo)
       .input('DocTypeCode', sql.VarChar, docTypeCode)
       .execute('usp_GetPlantDocumentData');
 
