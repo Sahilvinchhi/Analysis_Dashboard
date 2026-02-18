@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import './style.css';
-import logoImage from './assets/logo.png';
+import logoImage from './assets/a_d.jpg';
 import api from './api';
 
 
@@ -78,12 +78,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onRegisterClick, onLoginSu
     <div className="login-page">
       {/* Left Panel */}
       <div className="auth-left">
+        <div className="auth-logo">
+          <img src={logoImage} alt="Logo" className="auth-logo-img" />
+        </div>
         <div className="auth-left-content">
-          <div className="auth-logo">
-            <img src={logoImage} alt="Logo" className="auth-logo-img" />
-          </div>
-          <h1 className="auth-brand-title">Employee<br />Training Platform</h1>
-          <p className="auth-brand-subtitle">Online Professional Development</p>
+          <h1 className="auth-brand-title">PlantVision</h1>
+          <p className="auth-brand-subtitle">Where efficiency meets intelligence.</p>
+          <div className="auth-decorative-line"></div>
         </div>
       </div>
 

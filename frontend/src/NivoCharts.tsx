@@ -59,7 +59,7 @@ export const BarChart: React.FC<ChartProps> = ({
   xAxisKey = 'month',
   yAxisKeys = ['sales'],
   height = 400,
-  showLegend = true,
+ // showLegend = true,
   enableStackMode = false,
   invertAxes = false,
   colors = COLOR_PALETTE,
@@ -159,7 +159,7 @@ export const BarChart: React.FC<ChartProps> = ({
         axisTop={null}
         enableLabel={false}
         legends={[]}
-        tooltip={({ id, value, color, data }: any) => (
+        tooltip={({ id, value,  data }: any) => (
           <div style={{ padding: '8px 12px', backgroundColor: '#111827', color: '#fff', borderRadius: 4 }}>
             <div><strong>{data[xAxisKey]}:</strong></div>
             <div><strong>{id}:</strong> {value}</div>
@@ -178,7 +178,7 @@ export const ColumnChart: React.FC<ChartProps> = ({
   xAxisKey = 'month',
   yAxisKeys = ['sales'],
   height = 400,
-  showLegend = true,
+  //showLegend = true,
   enableStackMode = false,
   colors = COLOR_PALETTE,
   title,
@@ -276,7 +276,7 @@ export const ColumnChart: React.FC<ChartProps> = ({
           axisTop={null}
           enableLabel={false}
           legends={[]}
-          tooltip={({ id, value, color, data }: any) => (
+          tooltip={({ id, value, data }: any) => (
             <div style={{ padding: '8px 12px', backgroundColor: '#111827', color: '#fff', borderRadius: 4 }}>
               <div><strong>{data[xAxisKey]}:</strong></div>
               <div><strong>{id}:</strong> {value}</div>
@@ -293,7 +293,7 @@ export const ColumnChart: React.FC<ChartProps> = ({
 export const LineChart: React.FC<ChartProps> = ({
   data,
   height = 400,
-  showLegend = true,
+ // showLegend = true,
   colors = COLOR_PALETTE,
   title,
 }) => {
@@ -414,7 +414,7 @@ export const LineChart: React.FC<ChartProps> = ({
 export const AreaChart: React.FC<ChartProps> = ({
   data,
   height = 400,
-  showLegend = true,
+  //showLegend = true,
   colors = COLOR_PALETTE,
   title,
 }) => {
@@ -514,9 +514,9 @@ export const AreaChart: React.FC<ChartProps> = ({
           pointSize={0}
           pointColor="transparent"
           pointBorderWidth={0}
-          areaBaselineValue={0}
+          //areaBaselineValue={0}
           areaBlendMode="multiply"
-          fillOpacity={0.5}
+          //fillOpacity={0.5}
           useMesh={false}
           legends={[]}
           tooltip={({ point }: any) => (

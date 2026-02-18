@@ -453,43 +453,67 @@ body {
 
 .auth-left {
   position: relative;
-  padding: 3.5rem 4rem;
+  padding: 0;
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
   text-align: center;
   overflow: hidden;
+  background: #000;
 }
 
 .auth-left::before {
   content: '';
   position: absolute;
-  inset: 10% 5%;
-  border-radius: 32px;
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  opacity: 0.6;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 2;
+  pointer-events: none;
 }
 
 .auth-left-content {
   position: relative;
-  z-index: 1;
-  max-width: 360px;
+  z-index: 3;
+  max-width: 450px;
+  padding: 3rem 2rem;
+  animation: fadeInUp 0.8s ease-out;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .auth-logo {
-  display: flex;
-  justify-content: center;
-  direction: center;
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 100%;
-  margin-bottom: 2rem;
+  height: 100%;
+  z-index: 0;
 } 
 
 .auth-logo-img {
-  width: 500px;
-  max-width: 80%;
-  height: auto;
-  object-fit: contain;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
+.auth-decorative-line {
+  width: 80px;
+  height: 4px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.9), transparent);
+  margin: 2rem auto 0;
+  border-radius: 2px;
+  box-shadow: 0 2px 10px rgba(255, 255, 255, 0.3);
 }
 
 .auth-brand-title {
@@ -575,7 +599,7 @@ body {
   font-size: 1.8rem;
   color: #0b1b3b;
   font-weight: 700;
-  text-shadow: #2259c7 2px 2px 2px;
+  
 }
 
 .auth-title :hover {
