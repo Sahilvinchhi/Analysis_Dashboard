@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import './style.css';
 import api from './api';
 import { BarChart, LineChart, PieChart, ColumnChart, AreaChart } from './NivoCharts';
+import Loader from './components/Loader';
 
 
 interface Plant {
@@ -51,6 +52,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout, user }) => {
   const [chartType, setChartType] = useState<'bar' | 'line' | 'pie' | 'area' | 'column'>('bar');
   const [selectedYColumns, setSelectedYColumns] = useState<string[]>(['TotalDocAmt']);
   const [selectedPieParameter, setSelectedPieParameter] = useState<string>('TotalDocAmt');
+  const [selectedDivision, setSelectedDivision] = useState<string>('');
+  const [availableDivisions, setAvailableDivisions] = useState<string[]>([]);
   
 
 const plantDropdownRef = useRef<HTMLDivElement | null>(null);
@@ -88,6 +91,8 @@ const userDropdownRef = useRef<HTMLDivElement | null>(null);
       keys.find((key) => typeof firstRow[key] === 'string') ||
       keys[0];
 
+    const divisionKey = keys.find((key) => /division|div|dept|department/i.test(key));
+
     const numericKeys = keys.filter((key) => isNumericValue(firstRow[key]));
 
     const targetColumns = ['GrossTotal', 'NetInvoiceAmt', 'TotalTaxAmt', 'TotalDocAmt'];
@@ -95,7 +100,7 @@ const userDropdownRef = useRef<HTMLDivElement | null>(null);
       targetColumns.some((target) => key.toLowerCase().includes(target.toLowerCase()))
     );
 
-    return { labelKey, numericKeys, availableTargets };
+    return { labelKey, numericKeys, availableTargets, divisionKey };
   };
 
   // Detect keys from document data
@@ -113,10 +118,18 @@ const userDropdownRef = useRef<HTMLDivElement | null>(null);
         ? [selectedPieParameter] 
         : selectedYColumns;
 
+    // Filter by division if selected and division field exists (applies to ALL chart types)
+    const divisionKey = detectedChartKeys?.divisionKey;
+    const filteredData = divisionKey && selectedDivision
+      ? documentData.filter((row) => String(row[divisionKey]) === selectedDivision)
+      : documentData;
+
+    if (filteredData.length === 0) return null;
+
     if (chartType === 'pie') {
       // Convert to Nivo pie format: [{ id: 'name', value: amount }, ...]
       const colKey = selectedPieParameter;
-      return documentData.map((row) => {
+      return filteredData.map((row) => {
         const raw = row[colKey];
         const normalized = typeof raw === 'string' ? raw.replace(/,/g, '') : raw;
         const value = Number.isFinite(Number(normalized)) ? Number(normalized) : 0;
@@ -130,7 +143,7 @@ const userDropdownRef = useRef<HTMLDivElement | null>(null);
       // Convert to Nivo line/area format: [{ id: 'series', data: [{ x, y }, ...] }, ...]
       return columnsToUse.map((colKey) => ({
         id: formatHeader(colKey),
-        data: documentData.map((row) => {
+        data: filteredData.map((row) => {
           const raw = row[colKey];
           const normalized = typeof raw === 'string' ? raw.replace(/,/g, '') : raw;
           const y = Number.isFinite(Number(normalized)) ? Number(normalized) : 0;
@@ -142,17 +155,17 @@ const userDropdownRef = useRef<HTMLDivElement | null>(null);
       }));
     } else {
       // Convert to Nivo bar/column format: [{ labelKey: 'value', col1: amount, col2: amount }, ...]
-      return documentData.map((row) => {
+      return filteredData.map((row) => {
         const record: any = { [labelKey]: String(row[labelKey] ?? '') };
         columnsToUse.forEach((colKey) => {
           const raw = row[colKey];
-          const normalized = typeof raw === 'string' ? raw.replace(/,/g, '') : raw;
+          const normalized = typeof raw === 'string' ? row[colKey].replace(/,/g, '') : raw;
           record[colKey] = Number.isFinite(Number(normalized)) ? Number(normalized) : 0;
         });
         return record;
       });
     }
-  }, [documentData, detectedChartKeys, chartType, selectedYColumns, selectedPieParameter]);
+  }, [documentData, detectedChartKeys, chartType, selectedYColumns, selectedPieParameter, selectedDivision]);
 
   // Auto-select available target columns on data load
   useEffect(() => {
@@ -168,6 +181,24 @@ const userDropdownRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     fetchPlants();
   }, []);
+
+  // Extract available divisions when data loads
+  useEffect(() => {
+    if (documentData.length > 0 && detectedChartKeys?.divisionKey) {
+      const divisionKey = detectedChartKeys.divisionKey;
+      const divisions = Array.from(new Set(
+        documentData.map((row) => String(row[divisionKey])).filter(Boolean)
+      ));
+      setAvailableDivisions(divisions);
+      // Reset selected division when data changes
+      if (!divisions.includes(selectedDivision)) {
+        setSelectedDivision('');
+      }
+    } else {
+      setAvailableDivisions([]);
+      setSelectedDivision('');
+    }
+  }, [documentData, detectedChartKeys]);
 
   useEffect(() => {
     if (selectedPlant && selectedPlant !== 'Select Plant' && selectedPlantNo !== null) {
@@ -442,147 +473,157 @@ const userDropdownRef = useRef<HTMLDivElement | null>(null);
       <div style={{
         maxWidth: '1600px',
         margin: '0 auto',
-        padding: '2rem',
-        display: 'flex',
-        gap: '2rem',
-        alignItems: 'flex-start'
+        padding: '2rem 0',
+        display: 'block'
       }}>
-        {/* Left Side - Plant Selection */}
+        {/* Selection Row - Responsive 2 Column Layout */}
         <div style={{
-          flex: '0 0 350px',
-          backgroundColor: 'white',
-          borderRadius: '8px',
-          padding: '1.5rem',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+          gap: '2rem',
+          marginBottom: '2rem'
         }}>
-          <h2 style={{
-            fontSize: '1.125rem',
-            fontWeight: '600',
-            color: '#1f2937',
-            marginBottom: '1rem'
+          {/* Plant Selection - Col 1 */}
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '8px',
+            padding: '1.5rem',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
           }}>
-            Select Plant
-          </h2>
-          
-          <div style={{ position: 'relative' }} ref={plantDropdownRef}>
-            <button
-              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-              style={{
-                width: '100%',
-                backgroundColor: '#f9fafb',
-                color: '#1f2937',
-                padding: '0.75rem 1rem',
-                border: '1px solid #d1d5db',
-                borderRadius: '6px',
-                fontSize: '0.95rem',
-                fontWeight: '500',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                transition: 'all 0.2s ease'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = '#3b82f6';
-                e.currentTarget.style.backgroundColor = 'white';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = '#d1d5db';
-                e.currentTarget.style.backgroundColor = '#f9fafb';
-              }}
-            >
-              <span style={{ 
-                overflow: 'hidden', 
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap'
-              }}>
-                {loading ? 'Loading...' : selectedPlant}
-              </span>
-              <svg 
-                width="16" 
-                height="16" 
-                viewBox="0 0 24 24" 
-                fill="none" 
-                stroke="currentColor"
-                style={{ 
-                  transform: isDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)',
-                  transition: 'transform 0.2s ease',
-                  flexShrink: 0,
-                  marginLeft: '0.5rem'
+            <h2 style={{
+              fontSize: '1.125rem',
+              fontWeight: '600',
+              color: '#1f2937',
+              marginBottom: '1rem'
+            }}>
+              Select Plant
+            </h2>
+            
+            <div style={{ position: 'relative' }} ref={plantDropdownRef}>
+              <button
+                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                style={{
+                  width: '100%',
+                  backgroundColor: '#f9fafb',
+                  color: '#1f2937',
+                  padding: '0.75rem 1rem',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '6px',
+                  fontSize: '0.95rem',
+                  fontWeight: '500',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  transition: 'all 0.2s ease'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = '#3b82f6';
+                  e.currentTarget.style.backgroundColor = 'white';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = '#d1d5db';
+                  e.currentTarget.style.backgroundColor = '#f9fafb';
                 }}
               >
-                <path d="M6 9l6 6 6-6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            </button>
-            
-            {isDropdownOpen && (
-              <div style={{
-                position: 'absolute',
-                top: '100%',
-                left: 0,
-                right: 0,
-                marginTop: '0.5rem',
-                backgroundColor: 'white',
-                borderRadius: '6px',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                maxHeight: '300px',
-                overflowY: 'auto',
-                zIndex: 1000,
-                border: '1px solid #e5e7eb'
-              }}>
-                {error ? (
-                  <div style={{
-                    padding: '1rem',
-                    color: '#dc2626',
-                    fontSize: '0.875rem'
-                  }}>
-                    {error}
-                  </div>
-                ) : plants.length === 0 ? (
-                  <div style={{
-                    padding: '1rem',
-                    color: '#6b7280',
-                    fontSize: '0.875rem'
-                  }}>
-                    No plants available
-                  </div>
-                ) : (
-                  plants.map((plant) => (
-                    <button
-                      key={plant.id}
-                      onClick={() => handlePlantSelect(plant)}
-                      style={{
-                        width: '100%',
-                        padding: '0.75rem 1rem',
-                        border: 'none',
-                        backgroundColor: selectedPlant === plant.name ? '#eff6ff' : 'white',
-                        color: '#1f2937',
-                        textAlign: 'left',
-                        cursor: 'pointer',
-                        fontSize: '0.9rem',
-                        transition: 'background-color 0.15s ease'
-                      }}
-                      onMouseEnter={(e) => {
-                        if (selectedPlant !== plant.name) {
-                          e.currentTarget.style.backgroundColor = '#f9fafb';
-                        }
-                      }}
-                      onMouseLeave={(e) => {
-                        if (selectedPlant !== plant.name) {
-                          e.currentTarget.style.backgroundColor = 'white';
-                        }
-                      }}
-                    >
-                      {plant.name}
-                    </button>
-                  ))
-                )}
-              </div>
-            )}
+                <span style={{ 
+                  overflow: 'hidden', 
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap'
+                }}>
+                  {loading ? 'Loading...' : selectedPlant}
+                </span>
+                <svg 
+                  width="16" 
+                  height="16" 
+                  viewBox="0 0 24 24" 
+                  fill="none" 
+                  stroke="currentColor"
+                  style={{ 
+                    transform: isDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                    transition: 'transform 0.2s ease',
+                    flexShrink: 0,
+                    marginLeft: '0.5rem'
+                  }}
+                >
+                  <path d="M6 9l6 6 6-6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </button>
+              
+              {isDropdownOpen && (
+                <div style={{
+                  position: 'absolute',
+                  top: '100%',
+                  left: 0,
+                  right: 0,
+                  marginTop: '0.5rem',
+                  backgroundColor: 'white',
+                  borderRadius: '6px',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                  maxHeight: '300px',
+                  overflowY: 'auto',
+                  zIndex: 1000,
+                  border: '1px solid #e5e7eb'
+                }}>
+                  {error ? (
+                    <div style={{
+                      padding: '1rem',
+                      color: '#dc2626',
+                      fontSize: '0.875rem'
+                    }}>
+                      {error}
+                    </div>
+                  ) : plants.length === 0 ? (
+                    <div style={{
+                      padding: '1rem',
+                      color: '#6b7280',
+                      fontSize: '0.875rem'
+                    }}>
+                      No plants available
+                    </div>
+                  ) : (
+                    plants.map((plant) => (
+                      <button
+                        key={plant.id}
+                        onClick={() => handlePlantSelect(plant)}
+                        style={{
+                          width: '100%',
+                          padding: '0.75rem 1rem',
+                          border: 'none',
+                          backgroundColor: selectedPlant === plant.name ? '#eff6ff' : 'white',
+                          color: '#1f2937',
+                          textAlign: 'left',
+                          cursor: 'pointer',
+                          fontSize: '0.9rem',
+                          transition: 'background-color 0.15s ease'
+                        }}
+                        onMouseEnter={(e) => {
+                          if (selectedPlant !== plant.name) {
+                            e.currentTarget.style.backgroundColor = '#f9fafb';
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          if (selectedPlant !== plant.name) {
+                            e.currentTarget.style.backgroundColor = 'white';
+                          }
+                        }}
+                      >
+                        {plant.name}
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* Select Document Dropdown */}
-          <div style={{ marginTop: '1.5rem' }}>
+          {/* Document Selection - Col 2 */}
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '8px',
+            padding: '1.5rem',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+          }}>
             <h2 style={{
               fontSize: '1.125rem',
               fontWeight: '600',
@@ -801,17 +842,19 @@ const userDropdownRef = useRef<HTMLDivElement | null>(null);
                   backgroundColor: viewMode === 'table' ? 'rgba(59, 130, 246, 0.1)' : 'white',
                   color: viewMode === 'table' ? '#3b82f6' : '#1f2937',
                   fontSize: '0.85rem',
-                  fontWeight: 100,
+                  fontWeight: 600,
                   cursor: 'pointer',
                   transition: 'all 0.2s ease'
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.borderColor = '#3b82f6';
-                  e.currentTarget.style.backgroundColor = 'rgba(59, 130, 246, 0.05)';
+                  e.currentTarget.style.backgroundColor = '#16265c';
+                  e.currentTarget.style.color = 'white';
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.borderColor = viewMode === 'table' ? '#3b82f6' : '#d1d5db';
                   e.currentTarget.style.backgroundColor = viewMode === 'table' ? 'rgba(59, 130, 246, 0.1)' : 'white';
+                  e.currentTarget.style.color = '#1f2937';
                 }}
               >
                 Table
@@ -825,17 +868,19 @@ const userDropdownRef = useRef<HTMLDivElement | null>(null);
                   backgroundColor: viewMode === 'chart' ? 'rgba(59, 130, 246, 0.1)' : 'white',
                   color: viewMode === 'chart' ? '#3b82f6' : '#1f2937',
                   fontSize: '0.85rem',
-                  fontWeight: 100,
+                  fontWeight: 500,
                   cursor: 'pointer',
                   transition: 'all 0.2s ease'
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.borderColor = '#3b82f6';
-                  e.currentTarget.style.backgroundColor = 'rgba(59, 130, 246, 0.05)';
+                  e.currentTarget.style.backgroundColor = '#16265c';
+                  e.currentTarget.style.color = 'white';
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.borderColor = viewMode === 'chart' ? '#3b82f6' : '#d1d5db';
                   e.currentTarget.style.backgroundColor = viewMode === 'chart' ? 'rgba(59, 130, 246, 0.1)' : 'white';
+                  e.currentTarget.style.color = '#1f2937';
                 }}
               >
                 Chart
@@ -915,49 +960,123 @@ const userDropdownRef = useRef<HTMLDivElement | null>(null);
                         ))}
                       </div>
                     </div>
+                    {detectedChartKeys?.divisionKey && availableDivisions.length > 0 && (
+                      <select
+                        value={selectedDivision}
+                        onChange={(e) => setSelectedDivision(e.target.value)}
+                        style={{
+                          padding: '0.5rem 1rem',
+                          borderRadius: '6px',
+                          border: '1px solid #d1d5db',
+                          backgroundColor: 'white',
+                          color: '#1f2937',
+                          fontSize: '0.85rem',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          transition: 'all 0.2s ease',
+                          minWidth: '150px'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.borderColor = '#3b82f6';
+                          e.currentTarget.style.backgroundColor = 'rgba(59, 130, 246, 0.05)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.borderColor = '#d1d5db';
+                          e.currentTarget.style.backgroundColor = 'white';
+                        }}
+                      >
+                        <option value="">Select Division</option>
+                        {availableDivisions.map((div) => (
+                          <option key={div} value={div}>
+                            {div}
+                          </option>
+                        ))}
+                      </select>
+                    )}
                   </div>
                 ) : (
                   <div style={{
                     display: 'flex',
-                    gap: '1rem',
+                    gap: '1.5rem',
                     alignItems: 'center',
                     flexWrap: 'wrap'
                   }}>
-                    <span style={{
-                      fontSize: '0.85rem',
-                      fontWeight: 600,
-                      color: '#6b7280'
+                    <div style={{
+                      display: 'flex',
+                      gap: '1rem',
+                      alignItems: 'center',
+                      flexWrap: 'wrap'
                     }}>
-                      Y-Axis Columns:
-                    </span>
-                    {detectedChartKeys?.numericKeys?.map((colKey) => (
-                      <label
-                        key={colKey}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '0.4rem',
-                          fontSize: '0.85rem',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={selectedYColumns.includes(colKey)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setSelectedYColumns([...selectedYColumns, colKey]);
-                            } else {
-                              setSelectedYColumns(selectedYColumns.filter((col) => col !== colKey));
-                            }
-                          }}
+                      <span style={{
+                        fontSize: '0.85rem',
+                        fontWeight: 600,
+                        color: '#6b7280'
+                      }}>
+                        Y-Axis Columns:
+                      </span>
+                      {detectedChartKeys?.numericKeys?.map((colKey) => (
+                        <label
+                          key={colKey}
                           style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.4rem',
+                            fontSize: '0.85rem',
                             cursor: 'pointer'
                           }}
-                        />
-                        <span>{formatHeader(colKey)}</span>
-                      </label>
-                    ))}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedYColumns.includes(colKey)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedYColumns([...selectedYColumns, colKey]);
+                              } else {
+                                setSelectedYColumns(selectedYColumns.filter((col) => col !== colKey));
+                              }
+                            }}
+                            style={{
+                              cursor: 'pointer'
+                            }}
+                          />
+                          <span>{formatHeader(colKey)}</span>
+                        </label>
+                      ))}
+                    </div>
+
+                    {detectedChartKeys?.divisionKey && availableDivisions.length > 0 && (
+                      <select
+                        value={selectedDivision}
+                        onChange={(e) => setSelectedDivision(e.target.value)}
+                        style={{
+                          padding: '0.5rem 1rem',
+                          borderRadius: '6px',
+                          border: '1px solid #d1d5db',
+                          backgroundColor: 'white',
+                          color: '#1f2937',
+                          fontSize: '0.85rem',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          transition: 'all 0.2s ease',
+                          minWidth: '150px'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.borderColor = '#3b82f6';
+                          e.currentTarget.style.backgroundColor = 'rgba(59, 130, 246, 0.05)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.borderColor = '#d1d5db';
+                          e.currentTarget.style.backgroundColor = 'white';
+                        }}
+                      >
+                        <option value="">Select Division</option>
+                        {availableDivisions.map((div) => (
+                          <option key={div} value={div}>
+                            {div}
+                          </option>
+                        ))}
+                      </select>
+                    )}
                   </div>
                 )}
               </div>
@@ -1013,13 +1132,7 @@ const userDropdownRef = useRef<HTMLDivElement | null>(null);
               Please select a document type from the left panel
             </div>
           ) : loadingDocumentData ? (
-            <div style={{
-              padding: '3rem 2rem',
-              textAlign: 'center',
-              color: '#6b7280'
-            }}>
-              <div style={{ marginBottom: '0.5rem' }}>Loading document data...</div>
-            </div>
+            <Loader size={80} message="Fetching document data..." />
           ) : documentDataError ? (
             <div style={{
               padding: '1rem',
@@ -1081,7 +1194,7 @@ const userDropdownRef = useRef<HTMLDivElement | null>(null);
                       gridTemplateColumns: `repeat(${Object.keys(row).length}, minmax(120px, 1fr))`,
                       gap: '1px',
                       padding: '0.75rem 1rem',
-                      backgroundColor: index % 2 === 0 ? 'white' : '#f9fafb',
+                      backgroundColor: index % 2 === 0 ? 'white' : '#e5e7eb',
                       borderBottom: index < documentData.length - 1 ? '1px solid #d3dbec' : 'none',
                       fontSize: '0.875rem',
                       color: '#1f2937',
@@ -1091,10 +1204,10 @@ const userDropdownRef = useRef<HTMLDivElement | null>(null);
                       e.currentTarget.style.backgroundColor = '#eff6ff';
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = index % 2 === 0 ? 'white' : '#fcfcfc';
+                      e.currentTarget.style.backgroundColor = index % 2 === 0 ? 'white' : '#e5e7eb';
                     }}
                   >
-                    {Object.entries(row).map(([key, value]) => (
+                    {Object.entries(row).map(([key, value]) => ( 
                       <div key={key} style={{ 
                         padding: '0.25rem',
                         overflow: 'hidden',
@@ -1107,6 +1220,22 @@ const userDropdownRef = useRef<HTMLDivElement | null>(null);
                   </div>
                 ))}
               </div>
+            </div>
+          ) : detectedChartKeys?.divisionKey && !selectedDivision ? (
+            <div style={{
+              padding: '2rem',
+              textAlign: 'center',
+              backgroundColor: '#f9fafb',
+              borderRadius: '8px',
+              border: '1px solid #e5e7eb'
+            }}>
+              <p style={{
+                color: '#6b7280',
+                fontSize: '1rem',
+                fontWeight: 500
+              }}>
+                Please select a division first
+              </p>
             </div>
           ) : transformDataForNivo ? (
             <div style={{
@@ -1122,8 +1251,31 @@ const userDropdownRef = useRef<HTMLDivElement | null>(null);
                     marginBottom: '1rem',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '0.75rem'
+                    gap: '1rem',
+                    flexWrap: 'wrap'
                   }}>
+                    {selectedDivision && detectedChartKeys?.divisionKey && (
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.5rem'
+                      }}>
+                        <span style={{
+                          fontSize: '0.875rem',
+                          fontWeight: 400,
+                          color: '#6b7280'
+                        }}>
+                          Division:
+                        </span>
+                        <span style={{
+                          fontSize: '0.875rem',
+                          fontWeight: 500,
+                          color: '#1f2937'
+                        }}>
+                          {selectedDivision}
+                        </span>
+                      </div>
+                    )}
                     <div style={{
                       display: 'flex',
                       alignItems: 'center',
@@ -1174,42 +1326,142 @@ const userDropdownRef = useRef<HTMLDivElement | null>(null);
               )}
 
               {chartType === 'line' && (
-                <LineChart
-                  data={transformDataForNivo}
-                  height={400}
-                  showLegend={true}
-                />
+                <div>
+                  {selectedDivision && detectedChartKeys?.divisionKey && (
+                    <div style={{
+                      marginBottom: '1rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem'
+                    }}>
+                      <span style={{
+                        fontSize: '0.875rem',
+                        fontWeight: 400,
+                        color: '#6b7280'
+                      }}>
+                        Division:
+                      </span>
+                      <span style={{
+                        fontSize: '0.875rem',
+                        fontWeight: 500,
+                        color: '#1f2937'
+                      }}>
+                        {selectedDivision}
+                      </span>
+                    </div>
+                  )}
+                  <LineChart
+                    data={transformDataForNivo}
+                    height={400}
+                    showLegend={true}
+                  />
+                </div>
               )}
 
               {chartType === 'area' && (
-                <AreaChart
-                  data={transformDataForNivo}
-                  height={400}
-                  showLegend={true}
-                />
+                <div>
+                  {selectedDivision && detectedChartKeys?.divisionKey && (
+                    <div style={{
+                      marginBottom: '1rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem'
+                    }}>
+                      <span style={{
+                        fontSize: '0.875rem',
+                        fontWeight: 400,
+                        color: '#6b7280'
+                      }}>
+                        Division:
+                      </span>
+                      <span style={{
+                        fontSize: '0.875rem',
+                        fontWeight: 500,
+                        color: '#1f2937'
+                      }}>
+                        {selectedDivision}
+                      </span>
+                    </div>
+                  )}
+                  <AreaChart
+                    data={transformDataForNivo}
+                    height={400}
+                    showLegend={true}
+                  />
+                </div>
               )}
 
               {chartType === 'bar' && (
-                <BarChart
-                  data={transformDataForNivo}
-                  xAxisKey={detectedChartKeys?.labelKey}
-                  yAxisKeys={selectedYColumns}
-                  height={400}
-                  showLegend={true}
-                  enableStackMode={false}
-                  invertAxes={true}
-                />
+                <div>
+                  {selectedDivision && detectedChartKeys?.divisionKey && (
+                    <div style={{
+                      marginBottom: '1rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem'
+                    }}>
+                      <span style={{
+                        fontSize: '0.875rem',
+                        fontWeight: 400,
+                        color: '#6b7280'
+                      }}>
+                        Division:
+                      </span>
+                      <span style={{
+                        fontSize: '0.875rem',
+                        fontWeight: 500,
+                        color: '#1f2937'
+                      }}>
+                        {selectedDivision}
+                      </span>
+                    </div>
+                  )}
+                  <BarChart
+                    data={transformDataForNivo}
+                    xAxisKey={detectedChartKeys?.labelKey}
+                    yAxisKeys={selectedYColumns}
+                    height={400}
+                    showLegend={true}
+                    enableStackMode={false}
+                    invertAxes={true}
+                  />
+                </div>
               )}
 
               {chartType === 'column' && (
-                <ColumnChart
-                  data={transformDataForNivo}
-                  xAxisKey={detectedChartKeys?.labelKey}
-                  yAxisKeys={selectedYColumns}
-                  height={400}
-                  showLegend={true}
-                  enableStackMode={false}
-                />
+                <div>
+                  {selectedDivision && detectedChartKeys?.divisionKey && (
+                    <div style={{
+                      marginBottom: '1rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem'
+                    }}>
+                      <span style={{
+                        fontSize: '0.875rem',
+                        fontWeight: 400,
+                        color: '#6b7280'
+                      }}>
+                        Division:
+                      </span>
+                      <span style={{
+                        fontSize: '0.875rem',
+                        fontWeight: 500,
+                        color: '#1f2937'
+                      }}>
+                        {selectedDivision}
+                      </span>
+                    </div>
+                  )}
+                  <ColumnChart
+                    data={transformDataForNivo}
+                    xAxisKey={detectedChartKeys?.labelKey}
+                    yAxisKeys={selectedYColumns}
+                    height={400}
+                    showLegend={true}
+                    enableStackMode={false}
+                  />
+                </div>
               )}
             </div>
           ) : (

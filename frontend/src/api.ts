@@ -42,7 +42,7 @@ async function refreshAccessToken(): Promise<string | null> {
         'Content-Type': 'application/json',
       },
     });
-
+    
     if (response.ok) {
       const data = await response.json();
       if (data.success && data.accessToken) {

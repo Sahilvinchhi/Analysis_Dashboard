@@ -2,10 +2,11 @@ import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom/client';
 import './style.css';
 import api from './api';
-
 import { LoginPage } from './login-page';
 import { RegisterPage } from './register-page';
 import { Dashboard } from './dashboard';
+import 'bootstrap/dist/css/bootstrap.min.css';
+
 
 interface User {
   Id: number;

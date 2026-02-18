@@ -12,13 +12,13 @@
     "@nivo/bar": "^0.99.0",
     "@nivo/core": "^0.99.0",
     "@nivo/geo": "^0.99.0",
-    "@nivo/pie": "^0.99.0",
     "@nivo/line": "^0.99.0",
+    "@nivo/pie": "^0.99.0",
     "@nivo/scatterplot": "^0.99.0",
+    "lottie-react": "^2.4.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
-  
   "devDependencies": {
     "@types/react": "^18.3.27",
     "@types/react-dom": "^18.3.7",

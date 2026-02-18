@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import './style.css';
 //import logoImage from './assets/logo.png';
 import logoImage from './assets/a_d.jpg';
@@ -28,6 +28,8 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onBackToLogin }) => 
   const [status, setStatus] = useState<RegisterState>('idle');
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [showShake, setShowShake] = useState(false);
+  const authCardRef = useRef<HTMLDivElement | null>(null);
 
   const validate = (): boolean => {
     if (
@@ -40,43 +42,55 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onBackToLogin }) => 
       !formData.confirmPassword.trim()
     ) {
       setError('All fields are required.');
+      triggerShake();
       return false;
     }
 
     if (!formData.dob) {
       setError('Date of Birth is required.');
+      triggerShake();
       return false;
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(formData.email)) {
       setError('Please enter a valid email address.');
+      triggerShake();
       return false;
     }
 
     const contactRegex = /^\d{10}$/;
     if (!contactRegex.test(formData.contactNumber)) {
       setError('Contact number must be exactly 10 digits.');
+      triggerShake();
       return false;
     }
 
     if (/^(\d)\1{9}$/.test(formData.contactNumber)) {
       setError('Contact number cannot contain all same digits.');
+      triggerShake();
       return false;
     }
 
     if (formData.password.length < 6) {
       setError('Password must be at least 6 characters.');
+      triggerShake();
       return false;
     }
 
     if (formData.password !== formData.confirmPassword) {
       setError('Password and Confirm Password do not match.');
+      triggerShake();
       return false;
     }
 
     setError(null);
     return true;
+  };
+
+  const triggerShake = () => {
+    setShowShake(true);
+    setTimeout(() => setShowShake(false), 600);
   };
 
   const handleInputChange = (
@@ -117,6 +131,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onBackToLogin }) => 
       if (!data.success) {
         setStatus('error');
         setError(data.message || 'Registration failed. Please try again.');
+        triggerShake();
         return;
       }
 
@@ -142,6 +157,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onBackToLogin }) => 
       console.error('Registration error:', error);
       setStatus('error');
       setError(error.message || 'An error occurred. Please try again.');
+      triggerShake();
     }
   };
 
@@ -161,7 +177,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onBackToLogin }) => 
 
       {/* Right Panel - Register Form */}
       <div className="auth-right auth-right-register">
-        <div className="auth-card auth-card-large">
+        <div className={`auth-card auth-card-large ${showShake ? 'shake' : ''}`} ref={authCardRef}>
           <div className="auth-card-header">
             <h2 className="auth-title">Create Your Account</h2>  
             <p className="auth-subtitle">Join our training platform today</p>

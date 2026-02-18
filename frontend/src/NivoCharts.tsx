@@ -379,28 +379,38 @@ export const LineChart: React.FC<ChartProps> = ({
           yScale={{ type: 'linear', min: 'auto', max: 'auto', stacked: false }}
           colors={colorFunction}
           theme={CHART_THEME}
+          curve="monotoneX"
+          lineWidth={3}
           axisBottom={{
             tickSize: 5,
             tickPadding: 8,
             tickRotation: -45,
-            legend: 'Category',
+            legend: 'Year',
             legendPosition: 'middle',
             legendOffset: 80
           }}
-          axisLeft={{ tickSize: 5, tickPadding: 5 }}
+          axisLeft={{ 
+            tickSize: 5, 
+            tickPadding: 5,
+            legend: 'Value',
+            legendPosition: 'middle',
+            legendOffset: -50
+          }}
           axisRight={null}
           axisTop={null}
-          pointSize={6}
+          pointSize={8}
           pointColor="white"
-          pointBorderWidth={2}
+          pointBorderWidth={3}
           pointBorderColor={{ from: 'serieColor' }}
           pointLabelYOffset={-12}
+          enablePointLabel={false}
           useMesh={true}
           legends={[]}
           tooltip={({ point }: any) => (
-            <div style={{ padding: '8px 12px', backgroundColor: '#111827', color: '#fff', borderRadius: 4 }}>
-              <div><strong>{point.serieId}:</strong></div>
-              <div><strong>{point.data.x}:</strong> {point.data.y}</div>
+            <div style={{ padding: '10px 14px', backgroundColor: '#111827', color: '#fff', borderRadius: 6, boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}>
+              <div style={{ fontWeight: 600, marginBottom: '4px', color: '#60a5fa' }}>{point.serieId}</div>
+              <div style={{ fontSize: '0.9rem' }}><strong>Year:</strong> {point.data.x}</div>
+              <div style={{ fontSize: '0.9rem' }}><strong>Value:</strong> {point.data.y.toLocaleString()}</div>
             </div>
           )}
           animate={true}

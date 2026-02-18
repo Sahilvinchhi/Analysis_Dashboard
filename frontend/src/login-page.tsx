@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import './style.css';
 import logoImage from './assets/a_d.jpg';
 import api from './api';
@@ -18,27 +18,37 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onRegisterClick, onLoginSu
   const [status, setStatus] = useState<LoginState>('idle');
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [showShake, setShowShake] = useState(false);
+  const authCardRef = useRef<HTMLDivElement | null>(null);
   
 
   const validate = (): boolean => {
     if (!email.trim() || !password.trim()) {
       setError('Email and password are required.');
+      triggerShake();
       return false;
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       setError('Please enter a valid email address.');
+      triggerShake();
       return false;
     }
 
     if (password.length < 6) {
       setError('Password must be at least 6 characters.');
+      triggerShake();
       return false;
     }
 
     setError(null);
     return true;
+  };
+
+  const triggerShake = () => {
+    setShowShake(true);
+    setTimeout(() => setShowShake(false), 600);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -58,6 +68,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onRegisterClick, onLoginSu
       if (!data.success) {
         setStatus('error');
         setError(data.message || 'Login failed. Please try again.');
+        triggerShake();
         return;
       }
 
@@ -71,6 +82,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onRegisterClick, onLoginSu
       console.error(err);
       setStatus('error');
       setError(err.message || 'Something went wrong. Please try again later.');
+      triggerShake();
     }
   };
 
@@ -90,7 +102,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onRegisterClick, onLoginSu
 
       {/* Right Panel - Login Form */}
       <div className="auth-right">
-        <div className="auth-card">
+        <div className={`auth-card ${showShake ? 'shake' : ''}`} ref={authCardRef}>
           <div className="auth-card-header">
             <h2 className="auth-title">Login</h2>
             <p className="auth-subtitle">Enter your credentials to access your account</p>
