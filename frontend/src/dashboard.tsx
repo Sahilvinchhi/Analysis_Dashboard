@@ -54,11 +54,21 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout, user }) => {
   const [selectedPieParameter, setSelectedPieParameter] = useState<string>('TotalDocAmt');
   const [selectedDivision, setSelectedDivision] = useState<string>('');
   const [availableDivisions, setAvailableDivisions] = useState<string[]>([]);
+  const [selectedCustomer, setSelectedCustomer] = useState<string>('');
+  const [availableCustomers, setAvailableCustomers] = useState<string[]>([]);
+  const [isDivisionDropdownOpen, setIsDivisionDropdownOpen] = useState(false);
+  const [isCustomerDropdownOpen, setIsCustomerDropdownOpen] = useState(false);
+  const [plantSearch, setPlantSearch] = useState('');
+  const [divisionSearch, setDivisionSearch] = useState('');
+  const [customerSearch, setCustomerSearch] = useState('');
+  const [tableSearch, setTableSearch] = useState('');
   
 
 const plantDropdownRef = useRef<HTMLDivElement | null>(null);
 const documentDropdownRef = useRef<HTMLDivElement | null>(null);
 const userDropdownRef = useRef<HTMLDivElement | null>(null);
+const divisionDropdownRef = useRef<HTMLDivElement | null>(null);
+const customerDropdownRef = useRef<HTMLDivElement | null>(null);
 
 
   const chartTypes = useMemo(
@@ -118,11 +128,21 @@ const userDropdownRef = useRef<HTMLDivElement | null>(null);
         ? [selectedPieParameter] 
         : selectedYColumns;
 
-    // Filter by division if selected and division field exists (applies to ALL chart types)
+    // Filter by division and customer if selected
     const divisionKey = detectedChartKeys?.divisionKey;
-    const filteredData = divisionKey && selectedDivision
-      ? documentData.filter((row) => String(row[divisionKey]) === selectedDivision)
-      : documentData;
+    const customerKey = Object.keys(documentData[0]).find((key) =>
+      /customer.*name|custname|customer/i.test(key)
+    );
+
+    let filteredData = documentData;
+
+    if (divisionKey && selectedDivision) {
+      filteredData = filteredData.filter((row) => String(row[divisionKey]) === selectedDivision);
+    }
+
+    if (customerKey && selectedCustomer) {
+      filteredData = filteredData.filter((row) => String(row[customerKey]) === selectedCustomer);
+    }
 
     if (filteredData.length === 0) return null;
 
@@ -165,7 +185,23 @@ const userDropdownRef = useRef<HTMLDivElement | null>(null);
         return record;
       });
     }
-  }, [documentData, detectedChartKeys, chartType, selectedYColumns, selectedPieParameter, selectedDivision]);
+  }, [documentData, detectedChartKeys, chartType, selectedYColumns, selectedPieParameter, selectedDivision, selectedCustomer]);
+
+  const filteredTableData = useMemo(() => {
+    if (!tableSearch.trim()) return documentData;
+    const term = tableSearch.toLowerCase();
+    return documentData.filter((row) =>
+      Object.values(row).some((value) =>
+        String(value ?? '').toLowerCase().includes(term)
+      )
+    );
+  }, [documentData, tableSearch]);
+
+  const filteredPlants = useMemo(() => {
+    if (!plantSearch.trim()) return plants;
+    const term = plantSearch.toLowerCase();
+    return plants.filter((plant) => plant.name.toLowerCase().includes(term));
+  }, [plants, plantSearch]);
 
   // Auto-select available target columns on data load
   useEffect(() => {
@@ -182,7 +218,7 @@ const userDropdownRef = useRef<HTMLDivElement | null>(null);
     fetchPlants();
   }, []);
 
-  // Extract available divisions when data loads
+  // Extract available divisions and customers when data loads
   useEffect(() => {
     if (documentData.length > 0 && detectedChartKeys?.divisionKey) {
       const divisionKey = detectedChartKeys.divisionKey;
@@ -190,15 +226,40 @@ const userDropdownRef = useRef<HTMLDivElement | null>(null);
         documentData.map((row) => String(row[divisionKey])).filter(Boolean)
       ));
       setAvailableDivisions(divisions);
-      // Reset selected division when data changes
+
+      const customerKey = Object.keys(documentData[0]).find((key) =>
+        /customer.*name|custname|customer/i.test(key)
+      );
+
+      if (customerKey) {
+        const filteredData = selectedDivision
+          ? documentData.filter((row) => String(row[divisionKey]) === selectedDivision)
+          : documentData;
+
+        const customers = Array.from(new Set(
+          filteredData.map((row) => String(row[customerKey])).filter(Boolean)
+        ));
+        setAvailableCustomers(customers);
+
+        if (selectedCustomer && !customers.includes(selectedCustomer)) {
+          setSelectedCustomer('');
+        }
+      } else {
+        setAvailableCustomers([]);
+        setSelectedCustomer('');
+      }
+
       if (!divisions.includes(selectedDivision)) {
         setSelectedDivision('');
+        setSelectedCustomer('');
       }
     } else {
       setAvailableDivisions([]);
       setSelectedDivision('');
+      setAvailableCustomers([]);
+      setSelectedCustomer('');
     }
-  }, [documentData, detectedChartKeys]);
+  }, [documentData, detectedChartKeys, selectedDivision, selectedCustomer]);
 
   useEffect(() => {
     if (selectedPlant && selectedPlant !== 'Select Plant' && selectedPlantNo !== null) {
@@ -235,6 +296,14 @@ const userDropdownRef = useRef<HTMLDivElement | null>(null);
       if (userDropdownRef.current && !userDropdownRef.current.contains(target)) {
         setIsUserDropdownOpen(false);
       }
+
+      if (divisionDropdownRef.current && !divisionDropdownRef.current.contains(target)) {
+        setIsDivisionDropdownOpen(false);
+      }
+
+      if (customerDropdownRef.current && !customerDropdownRef.current.contains(target)) {
+        setIsCustomerDropdownOpen(false);
+      }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
@@ -263,6 +332,7 @@ const userDropdownRef = useRef<HTMLDivElement | null>(null);
     setSelectedPlant(plant.name);
     setSelectedPlantNo(plant.plantNo); // Set plant number directly from plant object
     setIsDropdownOpen(false);
+    setPlantSearch('');
     setSelectedDocument('Select Document'); // Reset document selection
     setDocumentDropdownError(null);
   };
@@ -354,6 +424,264 @@ const userDropdownRef = useRef<HTMLDivElement | null>(null);
     } finally {
       setLoadingDocumentData(false);
     }
+  };
+
+  const renderDivisionDropdown = () => {
+    if (!detectedChartKeys?.divisionKey || availableDivisions.length === 0) return null;
+
+    const filteredDivisions = availableDivisions.filter((div) =>
+      div.toLowerCase().includes(divisionSearch.toLowerCase())
+    );
+
+    return (
+      <div style={{ position: 'relative' }} ref={divisionDropdownRef}>
+        <button
+          onClick={() => {
+            setIsDivisionDropdownOpen((prev) => {
+              const next = !prev;
+              if (next) {
+                setDivisionSearch('');
+              }
+              return next;
+            });
+            setIsCustomerDropdownOpen(false);
+            setIsDropdownOpen(false);
+            setIsDocumentDropdownOpen(false);
+          }}
+          style={{
+            padding: '0.5rem 1rem',
+            borderRadius: '6px',
+            border: '1px solid #d1d5db',
+            backgroundColor: 'white',
+            color: '#1f2937',
+            fontSize: '0.85rem',
+            fontWeight: 600,
+            cursor: 'pointer',
+            transition: 'all 0.2s ease',
+            minWidth: '150px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '0.5rem'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.borderColor = '#3b82f6';
+            e.currentTarget.style.backgroundColor = 'rgba(59, 130, 246, 0.05)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.borderColor = '#d1d5db';
+            e.currentTarget.style.backgroundColor = 'white';
+          }}
+        >
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {selectedDivision || 'Division'}
+          </span>
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            style={{
+              transform: isDivisionDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+              transition: 'transform 0.2s ease',
+              flexShrink: 0
+            }}
+          >
+            <path d="M6 9l6 6 6-6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
+
+        {isDivisionDropdownOpen && (
+          <div style={{
+            position: 'absolute',
+            top: '100%',
+            left: 0,
+            right: 0,
+            marginTop: '0.5rem',
+            backgroundColor: 'white',
+            borderRadius: '6px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+            maxHeight: '260px',
+            overflowY: 'auto',
+            zIndex: 1000,
+            border: '1px solid #e5e7eb'
+          }}>
+            <div style={{ padding: '0.5rem' }}>
+              <input
+                type="text"
+                value={divisionSearch}
+                onChange={(e) => setDivisionSearch(e.target.value)}
+                placeholder="Search division..."
+                style={{
+                  width: '100%',
+                  padding: '0.5rem 0.75rem',
+                  borderRadius: '6px',
+                  border: '1px solid #d1d5db',
+                  fontSize: '0.85rem'
+                }}
+              />
+            </div>
+            {filteredDivisions.length === 0 ? (
+              <div style={{ padding: '0.75rem', color: '#6b7280', fontSize: '0.85rem' }}>
+                No divisions found
+              </div>
+            ) : (
+              filteredDivisions.map((div) => (
+                <button
+                  key={div}
+                  onClick={() => {
+                    setSelectedDivision(div);
+                    setIsDivisionDropdownOpen(false);
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: '0.6rem 0.9rem',
+                    border: 'none',
+                    backgroundColor: selectedDivision === div ? '#eff6ff' : 'white',
+                    color: '#1f2937',
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                    fontSize: '0.85rem'
+                  }}
+                >
+                  {div}
+                </button>
+              ))
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderCustomerDropdown = () => {
+    if (availableCustomers.length === 0) return null;
+
+    const filteredCustomers = availableCustomers.filter((cust) =>
+      cust.toLowerCase().includes(customerSearch.toLowerCase())
+    );
+
+    return (
+      <div style={{ position: 'relative' }} ref={customerDropdownRef}>
+        <button
+          onClick={() => {
+            setIsCustomerDropdownOpen((prev) => {
+              const next = !prev;
+              if (next) {
+                setCustomerSearch('');
+              }
+              return next;
+            });
+            setIsDivisionDropdownOpen(false);
+            setIsDropdownOpen(false);
+            setIsDocumentDropdownOpen(false);
+          }}
+          style={{
+            padding: '0.5rem 1rem',
+            borderRadius: '6px',
+            border: '1px solid #d1d5db',
+            backgroundColor: 'white',
+            color: '#1f2937',
+            fontSize: '0.85rem',
+            fontWeight: 600,
+            cursor: 'pointer',
+            transition: 'all 0.2s ease',
+            minWidth: '150px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '0.5rem'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.borderColor = '#3b82f6';
+            e.currentTarget.style.backgroundColor = 'rgba(59, 130, 246, 0.05)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.borderColor = '#d1d5db';
+            e.currentTarget.style.backgroundColor = 'white';
+          }}
+        >
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {selectedCustomer || 'Select Customer'}
+          </span>
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            style={{
+              transform: isCustomerDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+              transition: 'transform 0.2s ease',
+              flexShrink: 0
+            }}
+          >
+            <path d="M6 9l6 6 6-6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
+
+        {isCustomerDropdownOpen && (
+          <div style={{
+            position: 'absolute',
+            top: '100%',
+            left: 0,
+            right: 0,
+            marginTop: '0.5rem',
+            backgroundColor: 'white',
+            borderRadius: '6px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+            maxHeight: '260px',
+            overflowY: 'auto',
+            zIndex: 1000,
+            border: '1px solid #e5e7eb'
+          }}>
+            <div style={{ padding: '0.5rem' }}>
+              <input
+                type="text"
+                value={customerSearch}
+                onChange={(e) => setCustomerSearch(e.target.value)}
+                placeholder="Search customer..."
+                style={{
+                  width: '100%',
+                  padding: '0.5rem 0.75rem',
+                  borderRadius: '6px',
+                  border: '1px solid #d1d5db',
+                  fontSize: '0.85rem'
+                }}
+              />
+            </div>
+            {filteredCustomers.length === 0 ? (
+              <div style={{ padding: '0.75rem', color: '#6b7280', fontSize: '0.85rem' }}>
+                No customers found
+              </div>
+            ) : (
+              filteredCustomers.map((cust) => (
+                <button
+                  key={cust}
+                  onClick={() => {
+                    setSelectedCustomer(cust);
+                    setIsCustomerDropdownOpen(false);
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: '0.6rem 0.9rem',
+                    border: 'none',
+                    backgroundColor: selectedCustomer === cust ? '#eff6ff' : 'white',
+                    color: '#1f2937',
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                    fontSize: '0.85rem'
+                  }}
+                >
+                  {cust}
+                </button>
+              ))
+            )}
+          </div>
+        )}
+      </div>
+    );
   };
 
   return (
@@ -501,7 +829,15 @@ const userDropdownRef = useRef<HTMLDivElement | null>(null);
             
             <div style={{ position: 'relative' }} ref={plantDropdownRef}>
               <button
-                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                onClick={() =>
+                  setIsDropdownOpen((prev) => {
+                    const next = !prev;
+                    if (next) {
+                      setPlantSearch('');
+                    }
+                    return next;
+                  })
+                }
                 style={{
                   width: '100%',
                   backgroundColor: '#f9fafb',
@@ -565,6 +901,21 @@ const userDropdownRef = useRef<HTMLDivElement | null>(null);
                   zIndex: 1000,
                   border: '1px solid #e5e7eb'
                 }}>
+                  <div style={{ padding: '0.5rem' }}>
+                    <input
+                      type="text"
+                      value={plantSearch}
+                      onChange={(e) => setPlantSearch(e.target.value)}
+                      placeholder="Search plant..."
+                      style={{
+                        width: '100%',
+                        padding: '0.5rem 0.75rem',
+                        borderRadius: '6px',
+                        border: '1px solid #d1d5db',
+                        fontSize: '0.9rem'
+                      }}
+                    />
+                  </div>
                   {error ? (
                     <div style={{
                       padding: '1rem',
@@ -573,16 +924,16 @@ const userDropdownRef = useRef<HTMLDivElement | null>(null);
                     }}>
                       {error}
                     </div>
-                  ) : plants.length === 0 ? (
+                  ) : filteredPlants.length === 0 ? (
                     <div style={{
                       padding: '1rem',
                       color: '#6b7280',
                       fontSize: '0.875rem'
                     }}>
-                      No plants available
+                      No plants found
                     </div>
                   ) : (
-                    plants.map((plant) => (
+                    filteredPlants.map((plant) => (
                       <button
                         key={plant.id}
                         onClick={() => handlePlantSelect(plant)}
@@ -831,8 +1182,25 @@ const userDropdownRef = useRef<HTMLDivElement | null>(null);
 
             <div style={{
               display: 'flex',
-              gap: '0.5rem'
+              gap: '0.75rem',
+              alignItems: 'center',
+              flexWrap: 'wrap'
             }}>
+              {viewMode === 'table' && documentData.length > 0 && (
+                <input
+                  type="text"
+                  value={tableSearch}
+                  onChange={(e) => setTableSearch(e.target.value)}
+                  placeholder="Search table..."
+                  style={{
+                    padding: '0.5rem 0.75rem',
+                    borderRadius: '6px',
+                    border: '1px solid #d1d5db',
+                    fontSize: '0.85rem',
+                    minWidth: '220px'
+                  }}
+                />
+              )}
               <button
                 onClick={() => setViewMode('table')}
                 style={{
@@ -960,39 +1328,8 @@ const userDropdownRef = useRef<HTMLDivElement | null>(null);
                         ))}
                       </div>
                     </div>
-                    {detectedChartKeys?.divisionKey && availableDivisions.length > 0 && (
-                      <select
-                        value={selectedDivision}
-                        onChange={(e) => setSelectedDivision(e.target.value)}
-                        style={{
-                          padding: '0.5rem 1rem',
-                          borderRadius: '6px',
-                          border: '1px solid #d1d5db',
-                          backgroundColor: 'white',
-                          color: '#1f2937',
-                          fontSize: '0.85rem',
-                          fontWeight: 600,
-                          cursor: 'pointer',
-                          transition: 'all 0.2s ease',
-                          minWidth: '150px'
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.borderColor = '#3b82f6';
-                          e.currentTarget.style.backgroundColor = 'rgba(59, 130, 246, 0.05)';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.borderColor = '#d1d5db';
-                          e.currentTarget.style.backgroundColor = 'white';
-                        }}
-                      >
-                        <option value="">Select Division</option>
-                        {availableDivisions.map((div) => (
-                          <option key={div} value={div}>
-                            {div}
-                          </option>
-                        ))}
-                      </select>
-                    )}
+                    {renderDivisionDropdown()}
+                    {renderCustomerDropdown()}
                   </div>
                 ) : (
                   <div style={{
@@ -1044,39 +1381,8 @@ const userDropdownRef = useRef<HTMLDivElement | null>(null);
                       ))}
                     </div>
 
-                    {detectedChartKeys?.divisionKey && availableDivisions.length > 0 && (
-                      <select
-                        value={selectedDivision}
-                        onChange={(e) => setSelectedDivision(e.target.value)}
-                        style={{
-                          padding: '0.5rem 1rem',
-                          borderRadius: '6px',
-                          border: '1px solid #d1d5db',
-                          backgroundColor: 'white',
-                          color: '#1f2937',
-                          fontSize: '0.85rem',
-                          fontWeight: 600,
-                          cursor: 'pointer',
-                          transition: 'all 0.2s ease',
-                          minWidth: '150px'
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.borderColor = '#3b82f6';
-                          e.currentTarget.style.backgroundColor = 'rgba(59, 130, 246, 0.05)';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.borderColor = '#d1d5db';
-                          e.currentTarget.style.backgroundColor = 'white';
-                        }}
-                      >
-                        <option value="">Select Division</option>
-                        {availableDivisions.map((div) => (
-                          <option key={div} value={div}>
-                            {div}
-                          </option>
-                        ))}
-                      </select>
-                    )}
+                    {renderDivisionDropdown()}
+                    {renderCustomerDropdown()}
                   </div>
                 )}
               </div>
@@ -1157,70 +1463,84 @@ const userDropdownRef = useRef<HTMLDivElement | null>(null);
               No data found for this selection
             </div>
           ) : viewMode === 'table' ? (
-            <div style={{
-              border: '1px solid #e5e7eb',
-              borderRadius: '6px',
-              overflow: 'auto'
-            }}>
-              {/* Table Header */}
+            filteredTableData.length === 0 ? (
               <div style={{
-                display: 'grid',
-                gridTemplateColumns: `repeat(${Object.keys(documentData[0]).length}, minmax(120px, 1fr))`,
-                gap: '1px',
-                backgroundColor: '#16265c',
-                padding: '0.75rem 1rem',
-                fontWeight: '600',
-                fontSize: '0.875rem',
-                color: '#f7f7f7',
-                borderBottom: '2px solid #ffffff',
-                position: 'sticky',
-                top: 0,
-                zIndex: 1
+                padding: '2rem',
+                textAlign: 'center',
+                color: '#6b7280',
+                backgroundColor: '#f9fafb',
+                borderRadius: '6px',
+                border: '1px dashed #d1d5db',
+                fontSize: '0.95rem'
               }}>
-                {Object.keys(documentData[0]).map((key) => (
-                  <div key={key} style={{ padding: '0.25rem', whiteSpace: 'nowrap' }}>
-                    {formatHeader(key)}
-                  </div>
-                ))}
+                No matching records found
               </div>
- 
-              {/* Table Rows */}
-              <div style={{ maxHeight: '500px', overflowY: 'auto' }}>
-                {documentData.map((row, index) => (
-                  <div   
-                    key={index} 
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: `repeat(${Object.keys(row).length}, minmax(120px, 1fr))`,
-                      gap: '1px',
-                      padding: '0.75rem 1rem',
-                      backgroundColor: index % 2 === 0 ? 'white' : '#e5e7eb',
-                      borderBottom: index < documentData.length - 1 ? '1px solid #d3dbec' : 'none',
-                      fontSize: '0.875rem',
-                      color: '#1f2937',
-                      transition: 'background-color 0.15s ease'            
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor = '#eff6ff';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = index % 2 === 0 ? 'white' : '#e5e7eb';
-                    }}
-                  >
-                    {Object.entries(row).map(([key, value]) => ( 
-                      <div key={key} style={{ 
-                        padding: '0.25rem',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap'
-                      }}>
-                        {value !== null && value !== undefined ? String(value) : '-'}
-                      </div>
-                    ))}
-                  </div>
-                ))}
+            ) : (
+              <div style={{
+                border: '1px solid #e5e7eb',
+                borderRadius: '6px',
+                overflow: 'auto'
+              }}>
+                {/* Table Header */}
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: `repeat(${Object.keys(filteredTableData[0]).length}, minmax(120px, 1fr))`,
+                  gap: '1px',
+                  backgroundColor: '#16265c',
+                  padding: '0.75rem 1rem',
+                  fontWeight: '600',
+                  fontSize: '0.875rem',
+                  color: '#f7f7f7',
+                  borderBottom: '2px solid #ffffff',
+                  position: 'sticky',
+                  top: 0,
+                  zIndex: 1
+                }}>
+                  {Object.keys(filteredTableData[0]).map((key) => (
+                    <div key={key} style={{ padding: '0.25rem', whiteSpace: 'nowrap' }}>
+                      {formatHeader(key)}
+                    </div>
+                  ))}
+                </div>
+   
+                {/* Table Rows */}
+                <div style={{ maxHeight: '500px', overflowY: 'auto' }}>
+                  {filteredTableData.map((row, index) => (
+                    <div   
+                      key={index} 
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: `repeat(${Object.keys(row).length}, minmax(120px, 1fr))`,
+                        gap: '1px',
+                        padding: '0.75rem 1rem',
+                        backgroundColor: index % 2 === 0 ? 'white' : '#e5e7eb',
+                        borderBottom: index < filteredTableData.length - 1 ? '1px solid #d3dbec' : 'none',
+                        fontSize: '0.875rem',
+                        color: '#1f2937',
+                        transition: 'background-color 0.15s ease'            
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = '#eff6ff';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = index % 2 === 0 ? 'white' : '#e5e7eb';
+                      }}
+                    >
+                      {Object.entries(row).map(([key, value]) => ( 
+                        <div key={key} style={{ 
+                          padding: '0.25rem',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap'
+                        }}>
+                          {value !== null && value !== undefined ? String(value) : '-'}
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
+            )
           ) : detectedChartKeys?.divisionKey && !selectedDivision ? (
             <div style={{
               padding: '2rem',
