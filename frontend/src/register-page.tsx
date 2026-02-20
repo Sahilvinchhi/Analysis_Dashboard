@@ -164,10 +164,14 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onBackToLogin }) => 
   return (
     <div className="register-page">
       {/* Left Panel */}
-      <div className="auth-left">
-        <div className="auth-logo">
-          <img src={logoImage} alt="Logo" className="auth-logo-img" />
-        </div>
+      <div
+        className="auth-left"
+        style={{
+          backgroundImage: `url(${logoImage})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center'
+        }}
+      >
         <div className="auth-left-content">
           <h1 className="auth-brand-title">PlantVision</h1>
           <p className="auth-brand-subtitle">Where efficiency meets intelligence.</p>
