@@ -434,7 +434,9 @@ const customerDropdownRef = useRef<HTMLDivElement | null>(null);
     );
 
     return (
-      <div style={{ position: 'relative' }} ref={divisionDropdownRef}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#6b7280' }}>Division:</span>
+        <div style={{ position: 'relative' }} ref={divisionDropdownRef}>
         <button
           onClick={() => {
             setIsDivisionDropdownOpen((prev) => {
@@ -551,6 +553,7 @@ const customerDropdownRef = useRef<HTMLDivElement | null>(null);
             )}
           </div>
         )}
+        </div>
       </div>
     );
   };
@@ -563,7 +566,9 @@ const customerDropdownRef = useRef<HTMLDivElement | null>(null);
     );
 
     return (
-      <div style={{ position: 'relative' }} ref={customerDropdownRef}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#6b7280' }}>Customer:</span>
+        <div style={{ position: 'relative' }} ref={customerDropdownRef}>
         <button
           onClick={() => {
             setIsCustomerDropdownOpen((prev) => {
@@ -603,7 +608,7 @@ const customerDropdownRef = useRef<HTMLDivElement | null>(null);
           }}
         >
           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {selectedCustomer || 'Select Customer'}
+            {selectedCustomer || '  Customer'}
           </span>
           <svg
             width="16"
@@ -680,6 +685,7 @@ const customerDropdownRef = useRef<HTMLDivElement | null>(null);
             )}
           </div>
         )}
+        </div>
       </div>
     );
   };

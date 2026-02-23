@@ -398,19 +398,19 @@ export const LineChart: React.FC<ChartProps> = ({
           }}
           axisRight={null}
           axisTop={null}
-          pointSize={8}
-          pointColor="white"
-          pointBorderWidth={3}
-          pointBorderColor={{ from: 'serieColor' }}
+          pointSize={10}
+          pointColor={{ from: 'serieColor' }}
+          pointBorderWidth={2}
+          pointBorderColor="#ffffff"
           pointLabelYOffset={-12}
           enablePointLabel={false}
           useMesh={true}
           legends={[]}
           tooltip={({ point }: any) => (
-            <div style={{ padding: '10px 14px', backgroundColor: '#111827', color: '#fff', borderRadius: 6, boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}>
-              <div style={{ fontWeight: 600, marginBottom: '4px', color: '#60a5fa' }}>{point.serieId}</div>
-              <div style={{ fontSize: '0.9rem' }}><strong>Year:</strong> {point.data.x}</div>
-              <div style={{ fontSize: '0.9rem' }}><strong>Value:</strong> {point.data.y.toLocaleString()}</div>
+            <div style={{ padding: '12px 16px', backgroundColor: '#111827', color: '#fff', borderRadius: 8, boxShadow: '0 6px 16px rgba(0,0,0,0.4)', border: '2px solid #374151' }}>
+              <div style={{ fontWeight: 700, marginBottom: '6px', fontSize: '0.95rem', color: point.serieColor }}>{point.serieId}</div>
+              <div style={{ fontSize: '0.875rem', marginBottom: '3px' }}><strong>Year:</strong> <span style={{ color: '#d1d5db' }}>{point.data.x}</span></div>
+              <div style={{ fontSize: '0.95rem', fontWeight: 600, color: '#60a5fa' }}><strong>Value:</strong> {point.data.y.toLocaleString()}</div>
             </div>
           )}
           animate={true}
@@ -507,32 +507,41 @@ export const AreaChart: React.FC<ChartProps> = ({
           data={data}
           margin={{ top: 20, right: 20, bottom: 100, left: 60 }}
           xScale={{ type: 'point' }}
-          yScale={{ type: 'linear', min: 'auto', max: 'auto', stacked: true }}
+          yScale={{ type: 'linear', min: 0, max: 'auto', stacked: true }}
           colors={colorFunction}
           theme={CHART_THEME}
+          curve="monotoneX"
+          enableArea={true}
+          areaOpacity={0.85}
           axisBottom={{
             tickSize: 5,
             tickPadding: 8,
             tickRotation: -45,
-            legend: 'Category',
+            legend: 'Year',
             legendPosition: 'middle',
             legendOffset: 80
           }}
-          axisLeft={{ tickSize: 5, tickPadding: 5 }}
+          axisLeft={{ 
+            tickSize: 5, 
+            tickPadding: 5,
+            legend: 'Value',
+            legendPosition: 'middle',
+            legendOffset: -50
+          }}
           axisRight={null}
           axisTop={null}
-          pointSize={0}
-          pointColor="transparent"
-          pointBorderWidth={0}
-          //areaBaselineValue={0}
-          areaBlendMode="multiply"
-          //fillOpacity={0.5}
-          useMesh={false}
+          pointSize={6}
+          pointColor="#ffffff"
+          pointBorderWidth={2}
+          pointBorderColor={{ from: 'serieColor' }}
+          enablePointLabel={false}
+          useMesh={true}
           legends={[]}
           tooltip={({ point }: any) => (
-            <div style={{ padding: '8px 12px', backgroundColor: '#111827', color: '#fff', borderRadius: 4 }}>
-              <div><strong>{point.serieId}:</strong></div>
-              <div><strong>{point.data.x}:</strong> {point.data.y}</div>
+            <div style={{ padding: '12px 16px', backgroundColor: '#111827', color: '#fff', borderRadius: 8, boxShadow: '0 6px 16px rgba(0,0,0,0.4)', border: '2px solid #374151' }}>
+              <div style={{ fontWeight: 700, marginBottom: '6px', fontSize: '0.95rem', color: point.serieColor }}>{point.serieId}</div>
+              <div style={{ fontSize: '0.875rem', marginBottom: '3px' }}><strong>Year:</strong> <span style={{ color: '#d1d5db' }}>{point.data.x}</span></div>
+              <div style={{ fontSize: '0.95rem', fontWeight: 600, color: '#60a5fa' }}><strong>Value:</strong> {point.data.y.toLocaleString()}</div>
             </div>
           )}
           animate={true}
