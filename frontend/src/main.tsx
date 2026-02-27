@@ -5,6 +5,8 @@ import api from './api';
 import { LoginPage } from './login-page';
 import { RegisterPage } from './register-page';
 import { Dashboard } from './dashboard';
+import { useInactivityLogout } from './useInactivityLogout';
+import { SessionExpiredModal } from './components/SessionExpiredModal';
 import 'bootstrap/dist/css/bootstrap.min.css';
 
 
@@ -19,6 +21,26 @@ const App: React.FC = () => {
   const [currentPage, setCurrentPage] = useState<'login' | 'register' | 'dashboard'>('login');
   const [user, setUser] = useState<User | null>(null);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+  const [showSessionExpiredModal, setShowSessionExpiredModal] = useState(false);
+
+  // Handle inactivity timeout
+  const handleInactivity = () => {
+    // Show modal
+    setShowSessionExpiredModal(true);
+  };
+
+  // Handle modal close and redirect to login
+  const handleModalClose = () => {
+    setShowSessionExpiredModal(false);
+    handleLogout();
+  };
+
+  // Setup inactivity logout (only when user is logged in)
+  useInactivityLogout({
+    timeout: 120000, // 2 minutes (120000 milliseconds)
+    onInactive: handleInactivity,
+    enabled: currentPage === 'dashboard' && user !== null
+  });
 
   // Check for existing session on page load
   useEffect(() => {
@@ -100,7 +122,10 @@ const App: React.FC = () => {
   ) : currentPage === 'register' ? (
     <RegisterPage onBackToLogin={() => setCurrentPage('login')} />
   ) : (
-    <Dashboard onLogout={handleLogout} user={user || undefined} />
+    <>
+      <Dashboard onLogout={handleLogout} user={user || undefined} />
+      <SessionExpiredModal show={showSessionExpiredModal} onClose={handleModalClose} />
+    </>
   );
 };
 

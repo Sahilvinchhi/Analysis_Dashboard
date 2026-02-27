@@ -331,7 +331,7 @@ app.post('/api/login', async (req, res) => {
 
     const passwordMatch = await bcrypt.compare(password, user.PasswordHash);
     if (!passwordMatch) {
-      return res.status(401).json({ success: false, message: 'Invalid email or password.' });
+      return res.status(401).json({ success: false, message: 'Invalid  password.' });
     }
 
     // Create JWT tokens
